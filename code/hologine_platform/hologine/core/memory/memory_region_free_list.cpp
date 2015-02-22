@@ -38,7 +38,7 @@ void* holo::memory_region_free_list::pop()
 	
 	if (free_list_head == nullptr && !allocate_new_region())
 	{
-		// Some platform-specific reason has resulted in us unable to allcoate a new
+		// Some platform-specific reason has resulted in us unable to allocate a new
 		// region.
 		return nullptr;
 	}
@@ -135,7 +135,7 @@ bool holo::memory_region_free_list::allocate_new_region()
 	node->memory_region = std::move(new_memory_region);
 
 	// Now add it to the free list. No need to duplicate the logic.
-	push(pointer);
+	push((char*)node + sizeof(memory_region));
 
 	// The memory region was successfuly created.
 	return true;

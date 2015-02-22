@@ -33,6 +33,12 @@
 // 'foo_test' to access the internal state of 'foo.'
 #define HOLOGINE_ENABLE_INTERNAL_TEST(class_name) friend class_name##_test
 
+// Declares an internal test.
+//
+// This declaration should be done in the global namespace so that unit tests
+// can make use of the internal testing feature.
+#define HOLOGINE_DECLARE_INTERNAL_TEST(class_name) struct class_name##_test
+
 // If disabled, any testing scaffolding have a no impact on the behavior of
 // code. Sadly, when testing is enabled, there is a small difference in class
 // behavior if a class enables internal testing.
@@ -41,6 +47,8 @@
 // semicolon: simply define a forward declaration to a type. Regardless of it
 // being valid or not, the code will behave the same.
 #define HOLOGINE_ENABLE_INTERNAL_TEST(class_name) struct class_name##_test_disabled;
+
+#define HOLOGINE_DECLARE_INTERNAL_TEST(class_name) struct class_name##_test_disabled;
 
 #endif
 

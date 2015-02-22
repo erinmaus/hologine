@@ -12,6 +12,9 @@
 
 #include <cstddef>
 #include "core/memory/allocator.hpp"
+#include "core/test.hpp"
+
+HOLOGINE_DECLARE_INTERNAL_TEST(pool_allocator);
 
 namespace holo
 {
@@ -84,10 +87,10 @@ namespace holo
 				// 'object_size.' Thus, if 'size' is 16 and 'object_size' is 32, the
 				// region would be 512 bytes large.
 				//
-				// Deallocated nodes are coalesced for a multiple of reasons, most
-				// notably to ensure fast initialization of a new memory regions. Rather
-				// than initialize a higher number of nodes, we just need to initialize
-				// one and be done.
+				// Deallocated nodes are initially coalesced for a multiple most notably
+				// to ensure fast initialization of new memory regions. Rather than
+				// initialize a higher number of nodes, we just need to initialize one
+				// and be done.
 				//
 				// When size is the size of memory regions returned by the free list,
 				// and if this node is the first node in a memory region, then the
@@ -153,6 +156,12 @@ namespace holo
 				// store the limit in each region.
 				std::size_t size;
 
+				// Number of freed objects.
+				//
+				// If this number equals 'size', then the region header is empty and it
+				// can potentially be returned to the free list.
+				std::size_t free_nodes;
+
 				// First block of unallocated memory in this region.
 				free_pool_node* free_pool_node_list;
 			};
@@ -213,16 +222,6 @@ namespace holo
 			// Returns a pointer to the memory region header on success, NULL on
 			// failure. Failure can occur if the system memory is exhausted.
 			memory_region_header* request_empty_memory_region();
-
-			// Coalesces the provided node with the node before it.
-			//
-			// This operation should only be performed on nodes that are or will be
-			// free.
-			//
-			// The provided node will be merged with the node prior, forming a free
-			// node with a larger span (i.e., its size will become the sum of the
-			// node and prior node).
-			void coalesce_before(pool_node* node);
 
 			// Generates 'free_data' for a node when a 'coalesce_before' operation
 			// cannot be performed.

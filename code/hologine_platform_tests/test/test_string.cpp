@@ -7,7 +7,6 @@
 //
 // For licensing information, review the LICENSE file located at the root
 // directory of the source package.
-#define BOOST_TEST_MODULE module_utf8_string
 #include <iterator>
 #include <boost/test/unit_test.hpp>
 #include "test/test_allocator.hpp"

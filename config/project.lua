@@ -76,7 +76,7 @@ return function(project_name, project_target_name, root_path, platforms, deps, a
 		filter "action:gmake"
 			buildoptions { "-std=c++11" }
 
-		filter "options:enable-testing"
+		filter "options:enable-tests"
 			defines { "HOLOGINE_TESTING_ENABLED" }
 		
 		filter "configurations:Debug"

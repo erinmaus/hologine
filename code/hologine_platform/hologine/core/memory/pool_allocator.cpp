@@ -30,15 +30,18 @@ holo::pool_allocator::pool_allocator
 
 holo::pool_allocator::~pool_allocator()
 {
-	auto current = intrusive_list::make_iterator(memory_region_list_head);
-	auto end = intrusive_list::end<memory_region_header>();
+	auto current_iterator = intrusive_list::make_iterator(memory_region_list_head);
+	auto end_iterator = intrusive_list::end<memory_region_header>();
 	
 	// Return the memory regions to the free list.
-	while (current != end)
+	while (current_iterator != end_iterator)
 	{
-		memory_region_free_list->push(*current);
+		// Any references to the header are forfeit once it is pushed to the free
+		// list. We must fetch the next iterator before then and cache the current
+		// iterator's value.
+		auto current = *current_iterator++;
 
-		current++;
+		memory_region_free_list->push(current);
 	}
 }
 
@@ -72,6 +75,7 @@ void* holo::pool_allocator::allocate(std::size_t size, std::size_t)
 		node = get_first_free_node(new_memory_region);
 	}
 
+	free_pool_node* next_free_data = nullptr;
 	if (node->size > 1)
 	{
 		// The node must be broken up into a small and a large chunk.
@@ -81,7 +85,7 @@ void* holo::pool_allocator::allocate(std::size_t size, std::size_t)
 		// mind that the allocation header is at most default_align bytes large)
 		// and put the next free node there. Essentially, the public span is just
 		// an array with (default_align + object_size) sized elements.
-		free_pool_node* next_free_data =
+		next_free_data =
 			(free_pool_node*)((char*)node->free_data + default_align + object_size);
 
 		// The pool node list can also be considered a sort-of 'sparse' array, where
@@ -98,15 +102,21 @@ void* holo::pool_allocator::allocate(std::size_t size, std::size_t)
 		// Initialize and insert the free data.
 		// This will also update the allocation header.
 		next_free_data->memory_region = node->free_data->memory_region;
-		next_free_data->current = node;
+		next_free_data->current = next_node;
 
-		intrusive_list::insert_after(next_free_data, next_free_data);
+		intrusive_list::insert_after(next_free_data, node->free_data);
+
+		// Finally, update the node.
+		node->size = 1;
 	}
 
 	// Keep in mind this was the first free node found, thus its 'previous'
 	// pointer is NULL; so update the tail to the next node, and then remove
 	// the node.
-	node->free_data->memory_region->free_pool_node_list = node->free_data->next;
+	node->free_data->memory_region->free_pool_node_list = next_free_data;
+
+	// Decrease the number of free nodes.
+	--node->free_data->memory_region->free_nodes;
 	intrusive_list::remove(node->free_data);
 
 	// We don't have to update the allocation_header. By design, the fields of
@@ -131,37 +141,37 @@ void holo::pool_allocator::deallocate(void* pointer)
 	allocation_header* header = (allocation_header*)pointer - 1;
 	pool_node*  node = header->node;
 
-	// Attempt to coalesce with neighboring nodes, if possible.
-	pool_node* previous = node->previous;
-	if (previous->free_data != nullptr)
-	{
-		coalesce_before(node);
-	}
-	else
-	{
-		// The node could not be coalesced with the previous node, so generate
-		// the 'free_data' member.
-		make_free_node(header);
-	}
+	// Setup the node's free data.
+	make_free_node(header);
 
-	pool_node* next = node->next;
-	if (next->free_data != nullptr)
-	{
-		// The next node can be coalesced with the new free node.
-		coalesce_before(next);
-	}
-
-	// Simple check for returning memory back to the free list.
-	//
-	// If this region is empty, and it is not the only reserved region, then
-	// it should be removed from the list of used memory regions and returned to
-	// the free_list.
+	// Check if free_nodes == memory_region->size. If so, this region should be
+	// returned back to the free list unless it's the only memory region in the
+	// local pool list.
 	memory_region_header* memory_region = node->free_data->memory_region;
-	if (node->size == memory_region->size
+	++memory_region->free_nodes;
+
+	// If memory_region->free_nodes > memory_region->size, we have
+	// (at some point) deallocated a stale pointer. Better late than never in
+	// catching the error!
+	holo_assert(memory_region->free_nodes <= memory_region->size);
+
+	if (memory_region->free_nodes == memory_region->size
 		&& memory_region_list_head != memory_region_list_tail)
 	{
+		// Update the head or tail if necessary.
+		if (memory_region_list_head == memory_region)
+		{
+			memory_region_list_head = memory_region->next;
+		}
+		else if (memory_region_list_tail == memory_region)
+		{
+			memory_region_list_tail = memory_region->previous;
+		}
+
+		// Remove the node from the list.
 		intrusive_list::remove(memory_region);
 
+		// ...and tell the region list it's free for use.
 		memory_region_free_list->push(memory_region);
 	}
 }
@@ -222,7 +232,7 @@ holo::pool_allocator::memory_region_header* holo::pool_allocator::request_empty_
 	// Calculate the header size to create the first pool node. This node is
 	// aligned on a safe boundary.
 	std::size_t header_size =
-		get_pointer_distance(requested_region, align_pointer(requested_region_header + 1, alignof(pool_node)));
+		get_pointer_distance(align_pointer(requested_region_header + 1, alignof(pool_node)), requested_region);
 	pool_node* node = (pool_node*)((char*)requested_region + header_size);
 
 	// Setup the memory region for use with the allocator.
@@ -269,6 +279,7 @@ holo::pool_allocator::memory_region_header* holo::pool_allocator::request_empty_
 		(free_pool_node*)((char*)public_span_start + (default_align - sizeof(allocation_header)));
 
 	// Initialize the free_data member.
+	node->free_data->memory_region = requested_region_header;
 	node->free_data->current = node;
 	node->next = nullptr;
 	node->previous = nullptr;
@@ -279,6 +290,7 @@ holo::pool_allocator::memory_region_header* holo::pool_allocator::request_empty_
 	// maximum number of objects that can be allocated. So just use that value for
 	// the memory_region_header::size.
 	requested_region_header->size = node->size;
+	requested_region_header->free_nodes = node->size;
 	requested_region_header->free_pool_node_list = node->free_data;
 
 	if (memory_region_list_head == nullptr)
@@ -296,18 +308,6 @@ holo::pool_allocator::memory_region_header* holo::pool_allocator::request_empty_
 
 	// We're done. Return the new memory region.
 	return requested_region_header;
-}
-
-void holo::pool_allocator::coalesce_before(pool_node* node)
-{
-	pool_node* previous = node->previous;
-
-	// Just update the size of the adjacent free node...
-	previous->size += node->size;
-
-	// ..and remove 'node' from the list of allocations since it is now merged
-	// with the prior node.
-	intrusive_list::remove(node);
 }
 
 void holo::pool_allocator::make_free_node(void* pointer)
@@ -369,4 +369,7 @@ void holo::pool_allocator::make_free_node(void* pointer)
 		// Otherwise, just insert the free_data into the list.
 		intrusive_list::insert_after(free_data, prior_free_node);
 	}
+
+	// Mark the pool node as freed.
+	free_data->current->free_data = free_data;
 }

@@ -42,7 +42,7 @@ namespace holo
 		class iterator :
 			public boost::iterator_facade<
 				iterator<Node>,
-				Node,
+				Node*,
 				boost::bidirectional_traversal_tag,
 				Node*>
 		{
@@ -230,6 +230,14 @@ namespace holo
 			if (next != nullptr)
 			{
 				position->previous = node;
+			}
+
+			// Update the next point of 'position->previous'
+			Node* previous = position->previous;
+
+			if (previous != nullptr)
+			{
+				previous->next = node;
 			}
 			
 			// Update the next pointer of 'position'

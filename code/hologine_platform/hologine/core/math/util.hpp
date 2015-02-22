@@ -64,33 +64,10 @@ namespace holo
 		}
 		
 		// Gets the next-highest power-of-two of a 32-bit unsigned integer.
-		uint32_t next_power_of_two(uint32_t value)
-		{
-			--value;
-			
-			value |= value >> 1;
-			value |= value >> 2;
-			value |= value >> 4;
-			value |= value >> 8;
-			value |= value >> 16;
-			
-			return ++value;
-		}
+		std::uint32_t next_power_of_two(std::uint32_t value);
 		
 		// Gets the next highest power-of-two of a 64-bit unsigned integer.
-		uint64_t new_power_of_two(uint64_t value)
-		{
-			--value;
-			
-			value |= value >> 1;
-			value |= value >> 2;
-			value |= value >> 4;
-			value |= value >> 8;
-			value |= value >> 16;
-			value |= value >> 32;
-			
-			return ++value;
-		}
+		std::uint64_t new_power_of_two(std::uint64_t value);
 	}
 }
 
