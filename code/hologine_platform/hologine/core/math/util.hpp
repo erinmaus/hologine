@@ -18,6 +18,9 @@ namespace holo
 	// the standard library.
 	namespace math
 	{
+		// The value of pi.
+		const float pi = 3.14159265358979323846f;
+
 		// Rounds a value up to the nearest factor.
 		template <class Numeric>
 		Numeric round_up(Numeric value, Numeric factor)
