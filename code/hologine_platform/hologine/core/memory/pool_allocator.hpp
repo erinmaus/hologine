@@ -18,6 +18,7 @@ HOLOGINE_DECLARE_INTERNAL_TEST(pool_allocator);
 
 namespace holo
 {
+	class heap_allocator;
 	class memory_region_free_list;
 
 	// Allocates blocks of memory with uniform sizes.
@@ -28,7 +29,8 @@ namespace holo
 		public:
 			// Constructs a pool allocator with the provided
 			// holo::memory_region_free_list with objects no larger than
-			// 'object_size' bytes.
+			// 'object_size' bytes. This value must be a multiple of the default
+			// alignment.
 			//
 			// There is a lower limit to 'object_size', depending on the platform.
 			// 'object_size' is clamped to this limit, thus the object size for a
@@ -56,8 +58,8 @@ namespace holo
 			// holo::exception::invalid_argument will be pushed.
 			//
 			// Per-allocation alignment is ignored. All objects will be aligned to
-			// the default alignment.
-			void* allocate(std::size_t size, std::size_t align = default_align);
+			// the default alignment boundary.
+			void* allocate(std::size_t size, std::size_t alignment = default_alignment);
 			
 			// Deallocates a block from a previous call to
 			// holo::pool_allocator::allocate(size_t, size_t).

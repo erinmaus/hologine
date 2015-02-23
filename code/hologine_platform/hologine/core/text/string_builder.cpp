@@ -58,7 +58,7 @@ holo::string holo::string_builder::to_string(holo::allocator* allocator)
 			return holo::string();
 		}
 
-		string.buffer->data = (char*)allocator->allocate(length);
+		string.buffer->data = (char*)allocator->allocate(length, 1);
 		if (string.buffer->data == nullptr)
 		{
 			allocator->destruct(string.buffer);

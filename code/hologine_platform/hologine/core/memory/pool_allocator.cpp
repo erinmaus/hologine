@@ -81,12 +81,12 @@ void* holo::pool_allocator::allocate(std::size_t size, std::size_t)
 		// The node must be broken up into a small and a large chunk.
 		//
 		// Since free_pool_node objects are stored in the public span in a linear
-		// order, we can just increment by default_align + object_size (keep in
-		// mind that the allocation header is at most default_align bytes large)
+		// order, we can just increment by default_alignment + object_size (keep in
+		// mind that the allocation header is at most default_alignment bytes large)
 		// and put the next free node there. Essentially, the public span is just
-		// an array with (default_align + object_size) sized elements.
+		// an array with (default_alignment + object_size) sized elements.
 		next_free_data =
-			(free_pool_node*)((char*)node->free_data + default_align + object_size);
+			(free_pool_node*)((char*)node->free_data + default_alignment + object_size);
 
 		// The pool node list can also be considered a sort-of 'sparse' array, where
 		// cells are only complete when necessary. Therefore, to retrieve the next
@@ -139,7 +139,11 @@ void* holo::pool_allocator::allocate(std::size_t size, std::size_t)
 void holo::pool_allocator::deallocate(void* pointer)
 {
 	allocation_header* header = (allocation_header*)pointer - 1;
-	pool_node*  node = header->node;
+	pool_node* node = header->node;
+
+	// Ensure the node is currently allocated. Double deallocations ruin the
+	// internal state of the allocator.
+	holo_assert(node->free_data == nullptr);
 
 	// Setup the node's free data.
 	make_free_node(header);
@@ -150,9 +154,9 @@ void holo::pool_allocator::deallocate(void* pointer)
 	memory_region_header* memory_region = node->free_data->memory_region;
 	++memory_region->free_nodes;
 
-	// If memory_region->free_nodes > memory_region->size, we have
-	// (at some point) deallocated a stale pointer. Better late than never in
-	// catching the error!
+	// If memory_region->free_nodes > memory_region->size, we have (at some point)
+	// deallocated a stale pointer unwittingly. Better late thannever in catching
+	// the error!
 	holo_assert(memory_region->free_nodes <= memory_region->size);
 
 	if (memory_region->free_nodes == memory_region->size
@@ -242,7 +246,7 @@ holo::pool_allocator::memory_region_header* holo::pool_allocator::request_empty_
 	node->previous = nullptr;
 
 	std::size_t available_region_size =
-		memory_region_free_list->get_memory_region_size() - header_size - default_align - 1;
+		memory_region_free_list->get_memory_region_size() - header_size - default_alignment - 1;
 	std::size_t allocated_node_size = sizeof(pool_node) + sizeof(allocation_header) + object_size;
 
 	// 'size' is in multiples of 'object_size', not bytes; thus, we find the
@@ -264,19 +268,19 @@ holo::pool_allocator::memory_region_header* holo::pool_allocator::request_empty_
 	//
 	// We prepared for the necessary alignment when we calculated the available
 	// size above; therefore, just find the maximum extent of the pool node list,
-	// align to the next 'default_align' boundary, and use that as the
+	// align to the next 'default_alignment' boundary, and use that as the
 	// 'free_data' pointer.
 	void* public_span_start =
-		align_pointer((char*)node + node->size * sizeof(pool_node), default_align);
+		align_pointer((char*)node + node->size * sizeof(pool_node), default_alignment);
 
-	// Adjust by the difference between 'default_align' and
+	// Adjust by the difference between 'default_alignment' and
 	// sizeof(allocation_header).
 	//
 	// The allocation header is stored right before the allocation, which means
 	// there could be necessary padding on platforms where the default alignment is
 	// different from the size of the allocation header.
 	node->free_data = 
-		(free_pool_node*)((char*)public_span_start + (default_align - sizeof(allocation_header)));
+		(free_pool_node*)((char*)public_span_start + (default_alignment - sizeof(allocation_header)));
 
 	// Initialize the free_data member.
 	node->free_data->memory_region = requested_region_header;

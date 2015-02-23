@@ -24,7 +24,7 @@ namespace holo
 	// holo::memory_region objects can be shared between allocators, thus wasting
 	// less memory.
 	//
-	// This is most effectively demonstrated in the holo::generic_allocator
+	// This is most effectively demonstrated in the holo::heap_allocator
 	// implementation, which makes use of a variety of holo::pool_allocators that
 	// share a holo::memory_region_free_list; refer to holo::heap_allocator for
 	// more information.

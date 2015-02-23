@@ -75,6 +75,10 @@ return function(project_name, project_target_name, root_path, platforms, deps, a
 		
 		filter "action:gmake"
 			buildoptions { "-std=c++11" }
+			defines { "HOLOGINE_INTRINSICS_GCC_COMPATIBLE" }
+
+		filter "action:vs*"
+			defines { "HOLOGINE_INTRINSICS_MSVC_COMPATIBLE" }
 
 		filter "options:enable-tests"
 			defines { "HOLOGINE_TESTING_ENABLED" }

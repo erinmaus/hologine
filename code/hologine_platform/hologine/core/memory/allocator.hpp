@@ -43,7 +43,7 @@ namespace holo
 			//
 			// Implementation note: on x86, this value is still 16 bytes because of
 			// SSE data alignment requirements.
-			static const std::size_t default_align = 16;
+			static const std::size_t default_alignment = 16;
 			
 			// Default constructor and deconstructor.
 			allocator() = default;
@@ -57,7 +57,7 @@ namespace holo
 			// Returns a valid pointer to the newly allocated block of memory on
 			// success; otherwise, returns NULL. Failure can occur if there is no
 			// available region of memory that is large enough to fit the new block.
-			virtual void* allocate(std::size_t size, std::size_t align = default_align) = 0;
+			virtual void* allocate(std::size_t size, std::size_t alignment = default_alignment) = 0;
 			
 			// Deallocates a block of memory.
 			//
@@ -83,13 +83,13 @@ namespace holo
 			template <class Type, typename ...Arguments>
 			Type* construct(Arguments&&... args)
 			{
-				return align_construct<Type>(default_align, std::forward<Arguments>(args)...);
+				return align_construct<Type>(default_alignment, std::forward<Arguments>(args)...);
 			}
 			
 			// Allocates and constructs an object array, with an optional alignment
 			// in bytes.
 			template <class Type>
-			Type* construct_array(std::size_t length, std::size_t align = default_align)
+			Type* construct_array(std::size_t length, std::size_t align = default_alignment)
 			{
 				void* memory = allocate(sizeof(Type) * length + sizeof(std::size_t), align);
 				

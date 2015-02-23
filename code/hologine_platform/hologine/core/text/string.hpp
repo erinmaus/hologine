@@ -294,7 +294,9 @@ namespace holo
 			// The buffer is not NULL-terminated, and the input iterator is expected
 			// to dereference as a char; thus, simply allocate enough memory for
 			// 'length' bytes.
-			buffer->data = (char*)allocator->allocate(buffer->length);
+			//
+			// Since we're dealing with raw byte data, signify padding is unnecessary.
+			buffer->data = (char*)allocator->allocate(buffer->length, 1);
 
 			if (buffer->data != nullptr)
 			{

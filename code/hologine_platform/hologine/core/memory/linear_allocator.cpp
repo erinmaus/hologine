@@ -37,12 +37,12 @@ holo::linear_allocator::~linear_allocator()
 	reset();
 }
 
-void* holo::linear_allocator::allocate(std::size_t size, std::size_t align)
+void* holo::linear_allocator::allocate(std::size_t size, std::size_t alignment)
 {
 	void* pointer = nullptr;
 	
 	// Calculate the memory offset, taking into consideration alignment.
-	void* current_offset_pointer = align_pointer((char*)memory + memory_offset, align);
+	void* current_offset_pointer = align_pointer((char*)memory + memory_offset, alignment);
 	std::size_t requested_memory_offset = get_pointer_distance(current_offset_pointer, memory);
 	
 	if (requested_memory_offset + size < get_size())

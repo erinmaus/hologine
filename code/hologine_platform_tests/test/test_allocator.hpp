@@ -17,7 +17,7 @@
 class test_allocator final : public holo::allocator
 {
 	public:
-		void* allocate(std::size_t size, std::size_t align = default_align)
+		void* allocate(std::size_t size, std::size_t align = default_alignment)
 		{
 			void* pointer = std::malloc(size + sizeof(void*) + (align - 1));
 			void* aligned_pointer = align_pointer((char*)pointer + sizeof(void*), align);

@@ -10,7 +10,7 @@
 #include "core/platform.hpp"
 #include "core/memory/allocator.hpp"
 
-const std::size_t holo::allocator::default_align;
+const std::size_t holo::allocator::default_alignment;
 
 void* holo::allocator::align_pointer(void* pointer, std::size_t align)
 {

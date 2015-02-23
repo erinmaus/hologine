@@ -49,7 +49,7 @@ namespace holo
 			//
 			// The object should be simple; that is, it does not need an explicit
 			// destructor.
-			void* allocate(std::size_t size, std::size_t align = default_align) override;
+			void* allocate(std::size_t size, std::size_t alignment = default_alignment) override;
 			
 			// This method does nothing. To deallocate entries, call
 			// holo::linear_allocator::reset().
