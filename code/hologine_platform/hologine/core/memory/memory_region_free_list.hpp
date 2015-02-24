@@ -35,12 +35,16 @@ namespace holo
 		
 		public:
 			// Constructs a free list for holo::memory_region objects of the provided
-			// size, in bytes.
+			// hint, in bytes.
 			//
 			// A holo::memory_region is not allocated until
 			// holo::memory_region_free_list::pop() is called. Similarly, no errors
 			// will be pushed on to the exception stack by the constructor.
-			explicit memory_region_free_list(std::size_t size);
+			//
+			// A portion of the memory region returned is used by the memory region
+			// free list. To retrieve the available portion of a memory region, query
+			// holo::memory_region_free_list::get_memory_region_size().
+			explicit memory_region_free_list(std::size_t hint);
 			
 			// Destructs all memory regions currently in the free list.
 			//
@@ -89,8 +93,9 @@ namespace holo
 			
 			// Gets the size, in bytes, of a memory region.
 			//
-			// This value is provided in the constructor and is not adjusted by the
-			// page size.
+			// This value is adjusted from the requested size to fit fit best within
+			// the platform's virtual memory requirements, and then reduced for
+			// bookkeeping by the free list.
 			std::size_t get_memory_region_size() const;
 		
 		private:
@@ -119,9 +124,6 @@ namespace holo
 			// When the free list is empty, this value should be NULL.
 			memory_region_header* free_list_head;
 			
-			// The size of the memory region available to the user, in bytes.
-			std::size_t user_size;
-			
 			// The size of memory regions stored in this list, in bytes.
 			//
 			// This value will be the sum of a memory region header and the requested
@@ -132,6 +134,9 @@ namespace holo
 			// memory region is active. This is because the memory_region_header::next
 			// member is discarded.
 			std::size_t size;
+			
+			// The size of the memory region available to the user, in bytes.
+			std::size_t user_size;
 	};
 }
 

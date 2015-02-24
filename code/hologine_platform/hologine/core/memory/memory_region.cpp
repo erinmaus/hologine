@@ -7,6 +7,7 @@
 //
 // For licensing information, review the LICENSE file located at the root
 // directory of the source package.
+#include <algorithm>
 #include <utility>
 #include "core/exception.hpp"
 #include "core/math/util.hpp"
@@ -84,8 +85,8 @@ void* holo::memory_region::grow(std::size_t size)
 		{
 			return nullptr;
 		}
-		
-		memory = reserve_pages(math::multiple_of(max_size, get_page_size()));
+
+		memory = reserve_pages(get_reserved_size() / get_page_size());
 		
 		// Failed to reserve pages; return NULL and hope the caller can figure
 		// out the rest.
@@ -161,13 +162,13 @@ void holo::memory_region::reset(bool release)
 std::size_t holo::memory_region::get_reserved_size() const
 {
 	// If 'max_size' is 0, this is an empty memory region. Simply return 0 in such
-	// a case, since an empty memory region is perfectly valid.
+	// a case, since an empty memory region is a perfectly valid object.
 	if (max_size == 0)
 	{
 		return 0;
 	}
 	
-	return math::round_up(max_size, get_page_size());
+	return get_minimum_size(max_size);
 }
 
 std::size_t holo::memory_region::get_current_size() const
@@ -181,4 +182,9 @@ std::size_t holo::memory_region::get_current_size() const
 	// Otherwise, pages have been committed. As per the purpose of this method,
 	// return the number of pages committed as a size in bytes.
 	return math::round_up(current_size, get_page_size());
+}
+
+std::size_t holo::memory_region::get_minimum_size(std::size_t hint)
+{
+	return math::round_up(hint, std::max(get_page_size(), get_granularity()));
 }

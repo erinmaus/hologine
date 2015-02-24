@@ -17,9 +17,9 @@
 namespace holo
 {
 	// Windows implementation of a memory region, using VirtualAlloc & co.
-	class memory_region_base : public memory_region_interface
+	class memory_region_base : protected memory_region_interface
 	{
-		public:
+		protected:
 			// Implementation.
 			void* reserve_pages(std::size_t max_pages) override;
 			
@@ -31,9 +31,13 @@ namespace holo
 			
 			// Implementation.
 			void decommit_pages(void* base, std::size_t index, std::size_t count) override;
-			
+
+		public:
 			// Implementation.
-			std::size_t get_page_size() const override;
+			static std::size_t get_page_size();
+
+			// Implementation.
+			static std::size_t get_granularity();
 	};
 }
 

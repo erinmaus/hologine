@@ -8,14 +8,15 @@
 // For licensing information, review the LICENSE file located at the root
 // directory of the source package.
 #include <utility>
+#include "core/memory/memory_region.hpp"
 #include "core/memory/memory_region_free_list.hpp"
 
-holo::memory_region_free_list::memory_region_free_list(std::size_t size) :
+holo::memory_region_free_list::memory_region_free_list(std::size_t hint) :
 	free_list_head(nullptr),
-	user_size(size),
-	size(size + sizeof(memory_region_header))
+	size(holo::memory_region::get_minimum_size(hint)),
+	user_size(size - holo::memory_region::get_page_size())
 {
-	// Nothing.
+	holo_assert(user_size > 0);
 }
 
 holo::memory_region_free_list::~memory_region_free_list()
@@ -53,7 +54,7 @@ void* holo::memory_region_free_list::pop()
 	// We only need to preserve the holo::memory_region in the header.
 	// The other data (well, in this current implementation, the next pointer) is
 	// only used when the node is stored in the free list.
-	return (char*)node + sizeof(memory_region);
+	return (char*)node + holo::memory_region::get_page_size();
 }
 
 void holo::memory_region_free_list::push(void* region_base)
@@ -64,7 +65,7 @@ void holo::memory_region_free_list::push(void* region_base)
 	// holo::memory_region; this is because the rest of the header is discarded
 	// when the region is considered 'in-use'.
 	memory_region_header* node =
-		(memory_region_header*)((char*)region_base - sizeof(memory_region));
+		(memory_region_header*)((char*)region_base - holo::memory_region::get_page_size());
 	
 	// Store it at the beginning of the free list. This means that, unless another
 	// memory region is pushed on to the free list, this will be the next memory
@@ -135,7 +136,7 @@ bool holo::memory_region_free_list::allocate_new_region()
 	node->memory_region = std::move(new_memory_region);
 
 	// Now add it to the free list. No need to duplicate the logic.
-	push((char*)node + sizeof(memory_region));
+	push((char*)node + holo::memory_region::get_page_size());
 
 	// The memory region was successfuly created.
 	return true;

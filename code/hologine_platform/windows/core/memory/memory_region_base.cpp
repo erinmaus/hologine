@@ -61,11 +61,18 @@ void holo::memory_region_base::decommit_pages(void* base, std::size_t index, std
 	}
 }
 
-std::size_t holo::memory_region_base::get_page_size() const
+std::size_t holo::memory_region_base::get_page_size()
 {
 	// On Windows (32-bit and 64-bit, x86), the page size is a constant number:
 	// 4096 bytes. This, of course, can change in future versions of the operating
 	// system, so maybe we should cache the value from GetSystemMetrics() and use
 	// that instead.
-	return 4096;
+	return 0x1000u;
+}
+
+std::size_t holo::memory_region_base::get_granularity()
+{
+	// A call to VirtualAlloc is on a 64kb boundary, and thus memory regions
+	// must be on 64kb boundaries.
+	return 0x10000u;
 }

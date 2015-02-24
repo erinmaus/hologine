@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(freeing_old_memory_region)
 {
 	// This value is memory_region_size / object_size, which is the maximum
 	// necessary storage.
-	void* regions[64];
+	void* regions[128];
 
 	std::size_t max = get_free_object_count();
 	for (std::size_t i = 0; i < max; ++i)

@@ -16,9 +16,17 @@ namespace holo
 {
 	// Represents the platform-specific implementation of a memory region and
 	// exposes the necessary methods.
+	//
+	// Implementations should expose two static methods:
+	//
+	// std::size_t get_page_size() should return the page size of an allocation.
+	//
+	// std::size_t get_granularity() should return the granularity of page
+	// allocations (in other words, the boundary of each call to the underlying
+	// virtual memory allocation method).
 	class memory_region_interface
 	{
-		public:
+		protected:
 			// Reserves 'max_pages' of virtual memory.
 			//
 			// These pages should not yet be committed.
@@ -35,9 +43,6 @@ namespace holo
 			
 			// Decommits a range of pages.
 			virtual void decommit_pages(void* base, std::size_t index, std::size_t count) = 0;
-			
-			// Gets the size of a page on the platform, in bytes.
-			virtual std::size_t get_page_size() const = 0;
 	};
 }
 

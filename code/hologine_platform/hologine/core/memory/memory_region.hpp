@@ -32,7 +32,7 @@ namespace holo
 	//
 	// Individual pages cannot be deallocated. In order to decommit pages, the
 	// region must be reset. This effectively frees all committed pages.
-	class memory_region final : private memory_region_base
+	class memory_region final : public memory_region_base
 	{
 		memory_region(const holo::memory_region&) = delete;
 		holo::memory_region& operator =(const holo::memory_region&) = delete;
@@ -126,8 +126,18 @@ namespace holo
 			// the size of a page on the host system is 4096 bytes, then the maximum
 			// size of the region will be rounded to 4096.
 			//
+			// On certain systems, granularity may also increase the minimum size of
+			// a memory region. If the allocation granularity is larger than the page
+			// boundary, then regions will be a multiple of granularity rather than
+			// page size.
+			//
+			// The method to calculate the 'reserved size' based on the page boundary
+			// and granularity metrics is to round the requested on the maximum
+			// boundary of granularity or page size. On platforms with no granularity
+			// requirement, this will simply round based on page size.
+			//
 			// In short, this method returns the requested size of the region rounded
-			// to the nearest page, in bytes.
+			// to the nearest boundary, in bytes.
 			std::size_t get_reserved_size() const;
 			
 			// Gets the current size of the memory region, in bytes.
@@ -135,6 +145,13 @@ namespace holo
 			// This value will be a multiple of the page size. Refer to
 			// holo::memory_region::get_reserved_size() for more information.
 			std::size_t get_current_size() const;
+
+			// Utilty to round up a a size hint to the minimum memory region as per
+			// platform requirements.
+			//
+			// This method follows the rules of
+			// holo::memory_region::get_reserved_size().
+			static std::size_t get_minimum_size(std::size_t hint);
 		
 		private:
 			// The largest this region can grow, in bytes.
