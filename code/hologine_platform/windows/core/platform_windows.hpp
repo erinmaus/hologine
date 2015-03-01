@@ -12,6 +12,18 @@
 
 // Simply include the Windows header...
 #define WIN32_LEAN_AND_MEAN
+
+#ifdef WINVER
+	#undef WINVER
+#endif
+
+#ifdef _WIN32_WINNT
+	#undef _WIN32_WINNT
+#endif
+
+#define WINVER 0x0600
+#define _WIN32_WINNT 0x0600
+
 #include <windows.h>
 
 // ...and clear up any namespace clashes.
