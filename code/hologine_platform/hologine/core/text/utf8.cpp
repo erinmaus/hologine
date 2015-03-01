@@ -43,6 +43,8 @@ holo::exception_code holo::unicode::get_utf8_sequence_length(utf8_char lead, std
 	}
 	else
 	{
+		length = 0;
+
 		// Invalid lead.
 		return holo::exception::invalid_unicode_lead;
 	}

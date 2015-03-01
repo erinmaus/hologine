@@ -31,6 +31,9 @@ return function(project_name, project_target_name, root_path, platforms, deps, a
 		files { root_path .. "/**.cpp", root_path .. "/**.hpp" }
 		includedirs { root_path }
 		warnings "Extra"
+
+		-- Aliasing is evil. Just ask Linus Torvalds.
+		strictaliasing "Off"
 		
 		local prefix_path = _OPTIONS["prefix"]
 		if prefix_path then
@@ -94,7 +97,7 @@ return function(project_name, project_target_name, root_path, platforms, deps, a
 			defines { "HOLOGINE_RELEASE", "NDEBUG" }
 			flags { "LinkTimeOptimization" }
 			optimize "Speed"
-	
+
 		-- Workaround for a current (last checked as of 2015/01/19) Premake5 bug
 		filter "action:gmake"
 			implibextension ".a"

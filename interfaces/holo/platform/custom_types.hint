@@ -1,0 +1,59 @@
+module "holo"
+
+import "holo.platform.base"
+
+attribute(import_path, "core/handle.hpp")
+attribute(primitive, "holo::handle")
+handle = object:basic {}
+
+attribute(import_path, "core/math/matrix.hpp")
+attribute(native)
+attribute(export)
+matrix = object:basic {
+	var(float, "m11"),
+	var(float, "m12"),
+	var(float, "m13"),
+	var(float, "m14"),
+
+	var(float, "m21"),
+	var(float, "m22"),
+	var(float, "m23"),
+	var(float, "m24"),
+
+	var(float, "m31"),
+	var(float, "m32"),
+	var(float, "m33"),
+	var(float, "m34"),
+
+	var(float, "m41"),
+	var(float, "m42"),
+	var(float, "m43"),
+	var(float, "m44")
+}
+
+attribute(import_path, "core/math/vector2.hpp")
+attribute(native)
+attribute(export)
+vector2 = object:basic {
+	var(float, "x"),
+	var(float, "y")
+}
+
+attribute(import_path, "core/math/vector3.hpp")
+attribute(native)
+attribute(export)
+vector3 = object:basic {
+	var(float, "x"),
+	var(float, "y"),
+	var(float, "z")
+}
+
+attribute(import_path, "core/math/vector4.hpp")
+attribute(native)
+attribute(export)
+vector4 = object:basic {
+	var(float, "x"),
+	var(float, "y"),
+	var(float, "z"),
+	var(float, "w")
+}

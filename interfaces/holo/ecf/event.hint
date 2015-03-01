@@ -1,0 +1,4 @@
+module "holo"
+
+attribute(type_id, 4)
+event = category

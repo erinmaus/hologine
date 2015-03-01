@@ -1,0 +1,38 @@
+module "holo"
+
+import "holo.platform.base"
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::int8_t")
+byte = object:basic {}
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::uint8_t")
+ubyte = object:basic {}
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::int16_t")
+short = object:basic {}
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::uint16_t")
+ushort = object:basic {}
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::int32_t")
+int = object:basic {}
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::uint32_t")
+uint = object:basic {}
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::int64_t")
+long = object:basic {}
+
+attribute(import_path, "core/platform.hpp")
+attribute(primitive, "std::uint64_t")
+ulong = object:basic {}
+
+attribute(primitive, "float")
+float = object:basic {}

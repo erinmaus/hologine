@@ -1,0 +1,7 @@
+module "holo"
+
+attribute(type_id, 0)
+basic = category
+
+import "holo.platform.standard_types"
+import "holo.platform.custom_types"

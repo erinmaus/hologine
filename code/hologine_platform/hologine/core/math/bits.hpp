@@ -12,14 +12,57 @@
 
 #ifdef HOLOGINE_INTRINSICS_MSVC_COMPATIBLE
 	#include <intrin.h>
+	#include <cstdlib>
 #endif
 
 #include "core/platform.hpp"
 
 namespace holo
 {
+	// Contains various methods to operate and bits and bytes.
 	namespace math
 	{
+		// Left rotates 'value' by 'shift'.
+		inline std::uint32_t bit_rotate_left(std::uint32_t value, std::uint32_t shift)
+		{
+			#ifdef HOLOGINE_INTRINSICS_MSVC_COMPATIBLE
+				return _rotl(value, shift);
+			#else
+				// Apparently GCC generates rotate instructions without intrinsics if
+				// code follows this form.
+				return (value << shift) | (value >> (32 - shift));
+			#endif
+		}
+
+		// Rught rotates 'value' by 'shift'.
+		inline std::uint64_t bit_rotate_right(std::uint32_t value, std::uint32_t shift)
+		{
+			#ifdef HOLOGINE_INTRINSICS_MSVC_COMPATIBLE
+				return _rotr(value, shift);
+			#else
+				return (value >> shift) | (value << (32 - shift));
+			#endif
+		}
+
+		// Left rotates 'value' by 'shift'.
+		inline std::uint64_t bit_rotate_left(std::uint64_t value, std::uint64_t shift)
+		{
+			#ifdef HOLOGINE_INTRINSICS_MSVC_COMPATIBLE
+				return _rotl64(value, shift);
+			#else
+				return (value << shift) | (value >> (64 - shift));
+			#endif
+		}
+
+		inline std::uint64_t bit_rotate_right(std::uint64_t value, std::uint64_t shift)
+		{
+			#ifdef HOLOGINE_INTRINSICS_MSVC_COMPATIBLE
+				return _rotr64(value, shift);
+			#else
+				return (value >> shift) | (value << (64 - shift));
+			#endif
+		}
+
 		// Returns the index of the most-signficant.
 		//
 		// The behavior is undefined if value is zero.
@@ -29,6 +72,8 @@ namespace holo
 				return 31 - __builtin_clz(value);
 			#elif HOLOGINE_INTRINSICS_MSVC_COMPATIBLE
 				return _BitScanReverse(nullptr, value);
+			#else
+				#error holo::bit_scan_reverse only has intrinsic implementations
 			#endif
 		}
 
@@ -41,6 +86,8 @@ namespace holo
 				return 63 - __builtin_clzll(value);
 			#elif HOLOGINE_INTRINSICS_MSVC_COMPATIBLE
 				return _BitScanReverse64(nullptr, value);
+			#else
+				#error holo::bit_scan_reverse only has intrinsic implementations
 			#endif
 		}
 
@@ -64,6 +111,34 @@ namespace holo
 		inline std::uint64_t bit_log2(std::uint64_t value)
 		{
 			return bit_scan_reverse(value | 1);
+		}
+
+		// Swaps the bytes in 'value'.
+		inline std::uint16_t byte_swap(std::uint16_t value)
+		{
+			return (value >> 8) | (value << 8);
+		}
+
+		// Swaps the bytes in 'value'.
+		inline std::uint32_t byte_swap(std::uint32_t value)
+		{
+			return (value << 24)
+				| ((value >> 24) & 0xff)
+				| ((value & 0x0000ff00) << 8)
+				| ((value & 0x00ff0000) >> 8);
+		}
+
+		// Swaps the bytes in 'value'.
+		inline std::uint64_t byte_swap(std::uint64_t value)
+		{
+			return (value << 56)
+				| ((value << 40) & 0x00ff000000000000ull)
+				| ((value << 24) & 0x0000ff0000000000ull)
+				| ((value << 8) & 0x000000ff00000000ull)
+				| ((value >> 8) & 0x00000000ff000000ull)
+				| ((value >> 24) & 0x0000000000ff0000ull)
+				| ((value >> 40) & 0x000000000000ff00ull)
+				| (value >> 56);
 		}
 	}
 }

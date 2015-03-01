@@ -1,0 +1,5 @@
+module "holo"
+
+attribute(type_id, 2)
+attribute(handle, { age = 20, scope = 18, index = 18 })
+component = category
