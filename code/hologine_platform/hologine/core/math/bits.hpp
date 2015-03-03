@@ -22,6 +22,20 @@ namespace holo
 	// Contains various methods to operate and bits and bytes.
 	namespace math
 	{
+		// Generate a mask of 'n' bits.
+		template <std::size_t N>
+		struct mask
+		{
+			static const std::size_t value = (1 << (N + 1)) - 1;
+		};
+
+		// Ensures when 'N' is 0, mask::value == 0.
+		template <>
+		struct mask<0>
+		{
+			static const std::size_t value = 0;
+		};
+
 		// Left rotates 'value' by 'shift'.
 		inline std::uint32_t bit_rotate_left(std::uint32_t value, std::uint32_t shift)
 		{

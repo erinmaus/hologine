@@ -36,6 +36,16 @@ namespace holo
 		{
 			return round_up(value, factor) / factor;
 		}
+
+		// Returns x modulo y, where y is a power of two.
+		template <class UnsignedInteger>
+		UnsignedInteger modulo_power_of_two(UnsignedInteger x, UnsignedInteger y)
+		{
+			// The method here is identical in execution to detecting if a number is a
+			// power of two (see holo::math::is_power_of_two(UnsignedInteger) for
+			// more information).
+			return x & (y - 1);
+		}
 		
 		// Gets a boolean indicating if a value is a power of two.
 		template <class UnsignedInteger>

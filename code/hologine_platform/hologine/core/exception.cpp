@@ -100,23 +100,38 @@ bool holo::enable_exceptions(holo::allocator* allocator, holo::exception_code_ha
 		return false;
 	}
 
-	holo::exception_handler* handler = allocator->construct<holo::exception_handler>();
+	holo::exception_handler* handler = holo_exception_handler;
 
 	if (handler == nullptr)
 	{
-		// The allocator failed to allocate a small portion of memory...!
-		// This means the allocator is misconfigured or something has exhausted the
-		// memory, but most probably the former.
-		return false;
+		if (allocator == nullptr)
+		{
+			// There is nothing we can do. The exception handler was never allocated,
+			// and no allocator is provided to do so.
+			return false;
+		}
+
+		handler = allocator->construct<holo::exception_handler>();
+
+		if (handler == nullptr)
+		{
+			// The allocator failed to allocate a small portion of memory...! This
+			// means the allocator is misconfigured or something has exhausted the
+			// memory, but most probably the former.
+			return false;
+		}
+
+		handler->exception_stack_top = 0;
+		handler->allocator = allocator;
+
+		// Everything (so far) has been successful, so finish by assigning the
+		// thread local variable the exception handler.
+		holo_exception_handler = handler;
 	}
 
-	handler->exception_stack_top = 0;
+	// Assign the callback method, overriding the current one if the handler was
+	// already allocated.
 	handler->callback = callback;
-	handler->allocator = allocator;
-
-	// Everything (so far) has been successful, so finish by assigning the thread
-	// local variable the exception handler.
-	holo_exception_handler = handler;
 
 	return true;
 }

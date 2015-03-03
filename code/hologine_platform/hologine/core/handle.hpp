@@ -11,6 +11,7 @@
 #define HOLOGINE_CORE_HANDLE_HPP_
 
 #include "core/platform.hpp"
+#include "core/math/bits.hpp"
 
 namespace holo
 {
@@ -100,41 +101,30 @@ namespace holo
 	struct handle_definition
 	{
 		private:
-			// Implementation detail to generate a mask of 'n' bits.
-			template <std::size_t N>
-			struct mask
-			{
-				static const std::size_t value = (1 << (N + 1)) - 1;
-			};
-
-			// Ensures when 'N' is 0, mask::value == 0.
-			template <>
-			struct mask<0>
-			{
-				static const std::size_t value = 0;
-			};
-
 			// The index is stored from bits 0 to 'Index', thus its shift value is 0
 			// regardless of arguments.
 			static const std::size_t index_shift = 0;
 
 			// The mask value for index.
-			static const std::size_t index_mask = mask<Index>::value;
+			static const std::size_t index_mask = math::mask<Index>::value;
 			
 			// The scope immediately comes after the index, thus its shift value is
 			// 'Index' bits.
 			static const std::size_t scope_shift = Index;
 
 			// The mask value for scope.
-			static const std::size_t scope_mask = mask<Scope>::value;
+			static const std::size_t scope_mask = math::mask<Scope>::value;
 
 			// Age is stored after scope, so accumulate the bit counts.
 			static const std::size_t age_shift = Index + Scope;
 
 			// The mask value for age.
-			static const std::size_t age_mask = mask<Age>::value;
+			static const std::size_t age_mask = math::mask<Age>::value;
 
 		public:
+			// The handle type, as defined in the template parameter.
+			static const std::size_t type = Type;
+
 			// The maximum index value.
 			static const std::size_t max_index = index_mask;
 
@@ -154,7 +144,7 @@ namespace holo
 			//
 			// This should be used before decoding any values, if robustness is
 			// necessary.
-			std::size_t is_type(holo::handle handle);
+			bool is_type(holo::handle handle);
 
 			// Decodes the handle age.
 			//
@@ -181,7 +171,7 @@ namespace holo
 	};
 
 	template <std::size_t Type, std::size_t Age, std::size_t Scope, std::size_t Index>
-	holo::handle struct handle_definition<Type, Age, Scope, Index>::encode(
+	holo::handle handle_definition<Type, Age, Scope, Index>::encode(
 		std::size_t age,
 		std::size_t scope,
 		std::size_t index)
@@ -195,7 +185,7 @@ namespace holo
 	}
 
 	template <std::size_t Type, std::size_t Age, std::size_t Scope, std::size_t Index>
-	bool struct handle_definition<Type, Age, Scope, Index>::is_type(holo::handle handle)
+	bool handle_definition<Type, Age, Scope, Index>::is_type(holo::handle handle)
 	{
 		std::size_t handle_type = (handle >> holo::handle_detail::handle_type_shift) & holo::handle_detail::handle_type_mask;
 
@@ -203,25 +193,25 @@ namespace holo
 	}
 
 	template <std::size_t Type, std::size_t Age, std::size_t Scope, std::size_t Index>
-	std::size_t struct handle_config<Type, Age, Scope, Index>::decode_age(holo::handle handle)
+	std::size_t handle_definition<Type, Age, Scope, Index>::decode_age(holo::handle handle)
 	{
 		return (handle >> age_shift) & age_mask;
 	}
 
 	template <std::size_t Type, std::size_t Age, std::size_t Scope, std::size_t Index>
-	std::size_t struct handle_config<Type, Age, Scope, Index>::decode_scope(holo::handle handle)
+	std::size_t handle_definition<Type, Age, Scope, Index>::decode_scope(holo::handle handle)
 	{
 		return (handle >> scope_shift) & scope_mask;
 	}
 
 	template <std::size_t Type, std::size_t Age, std::size_t Scope, std::size_t Index>
-	std::size_t struct handle_config<Type, Age, Scope, Index>::decode_index(holo::handle handle)
+	std::size_t handle_definition<Type, Age, Scope, Index>::decode_index(holo::handle handle)
 	{
 		return (handle >> index_shift) & index_mask;
 	}
 
 	template <std::size_t Type, std::size_t Age, std::size_t Scope, std::size_t Index>
-	std::size_t struct handle_config<Type, Age, Scope, Index>::increment_age(std::size_t age)
+	std::size_t handle_definition<Type, Age, Scope, Index>::increment_age(std::size_t age)
 	{
 		return (age % max_age) + 1;
 	}
