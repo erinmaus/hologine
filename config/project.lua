@@ -40,6 +40,13 @@ return function(project_name, project_target_name, root_path, platforms, deps, a
 			includedirs { prefix_path .. "/include" }
 			libdirs { prefix_path .. "/lib" }
 		end
+
+		local endian = _OPTIONS["endian"]
+		if endian == "big" then
+			defines { "HOLOGINE_BIG_ENDIAN" }
+		else
+			defines { "HOLOGINE_LITTLE_ENDIAN" }
+		end
 		
 		if platforms then
 			for i = 1, #platforms do

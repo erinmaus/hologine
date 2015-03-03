@@ -19,7 +19,16 @@ hologine_config.actions.import_project = require "config.action_import_project"
 
 newoption {
 	trigger = "enable-tests",
-	description = "Enable unit testing."
+	description = "Enable unit testing"
+}
+
+newoption {
+	trigger = "endian",
+	description = "Set endian mode of target system",
+	allowed = {
+		{ "big", "Target system is big endian" },
+		{ "little", "Target system is little endian (default)" }
+	}
 }
 
 newoption {
