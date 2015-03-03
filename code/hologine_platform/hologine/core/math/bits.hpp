@@ -114,13 +114,13 @@ namespace holo
 		}
 
 		// Swaps the bytes in 'value'.
-		inline std::uint16_t byte_swap(std::uint16_t value)
+		inline std::uint16_t swap_bytes(std::uint16_t value)
 		{
 			return (value >> 8) | (value << 8);
 		}
 
 		// Swaps the bytes in 'value'.
-		inline std::uint32_t byte_swap(std::uint32_t value)
+		inline std::uint32_t swap_bytes(std::uint32_t value)
 		{
 			return (value << 24)
 				| ((value >> 24) & 0xff)
@@ -129,7 +129,7 @@ namespace holo
 		}
 
 		// Swaps the bytes in 'value'.
-		inline std::uint64_t byte_swap(std::uint64_t value)
+		inline std::uint64_t swap_bytes(std::uint64_t value)
 		{
 			return (value << 56)
 				| ((value << 40) & 0x00ff000000000000ull)

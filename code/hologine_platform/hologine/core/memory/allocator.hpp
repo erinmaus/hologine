@@ -7,8 +7,8 @@
 //
 // For licensing information, review the LICENSE file located at the root
 // directory of the source package.
-#ifndef HOLOGINE_CORE_MEMORY_ALLOCATOR_HPP
-#define HOLOGINE_CORE_MEMORY_ALLOCATOR_HPP
+#ifndef HOLOGINE_CORE_MEMORY_ALLOCATOR_HPP_
+#define HOLOGINE_CORE_MEMORY_ALLOCATOR_HPP_
 
 #include <cstddef>
 #include <exception>

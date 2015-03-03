@@ -1,14 +1,16 @@
-local function read_file(file)
-	local f, e = io.open(file)
+local function read_file(roots, file)
+	for i = 1, #roots do
+		local f, e = io.open(string.format("%s/%s", roots[i], file))
 
-	if f then
-		local s = f:read("*a")
-		f:close()
+		if f then
+			local s = f:read("*a")
+			f:close()
 
-		return s
-	else
-		return false
+			return s
+		end
 	end
+
+	return false
 end
 
 local function create_interfaces()
@@ -23,7 +25,7 @@ local function parsing_error(...)
 	error(string.format(...), 3)
 end
 
-local function parse(root, local_path, deps)
+local function parse(roots, local_path, deps)
 	deps = deps or {}
 
 	local interfaces = create_interfaces()
@@ -45,7 +47,7 @@ local function parse(root, local_path, deps)
 			deps[module] = true
 
 			local module_path = module:gsub(":", "/") .. ".hint"
-			local s, r = parse(root, module_path, deps)
+			local s, r = pcall(parse, roots, module_path, deps)
 
 			if not s then
 				parsing_error(r)
@@ -137,7 +139,7 @@ local function parse(root, local_path, deps)
 
 	local _M = setmetatable({}, { __index = global_index, __newindex = global_newindex })
 
-	local s = read_file(root .. local_path)
+	local s = read_file(roots, local_path)
 	if not s then
 		error("could not open file '%s'", local_path))
 	end
