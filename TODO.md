@@ -1,9 +1,5 @@
 # Soon
-* Write unit tests for:
-  * `holo::heap_allocator` (high priority)
-  * `holo::linear_allocator` (high priority)
-  * `holo::memory_region` (medium priority)
-  * `holo::string_builder` (low priority)
+* Write unit tests for: EVERYTHING!!
 * Implement `holo::memory_region::shrink(std::size_t)` to allow more fine-tuned
   control over the committed portions of a virtual memory region.
 * Write versions of `holo::math::bit_scan_reverse` that do not depend on 
