@@ -7,8 +7,8 @@
 //
 // For licensing information, review the LICENSE file located at the root
 // directory of the source package.
-#ifndef HOLOGINE_CORE_MATH_VECTOR2_H_
-#define HOLOGINE_CORE_MATH_VECTOR2_H_
+#ifndef HOLOGINE_CORE_MATH_VECTOR2_HPP_
+#define HOLOGINE_CORE_MATH_VECTOR2_HPP_
 
 namespace holo
 {
