@@ -13,7 +13,7 @@
 #include <cstddef>
 #include "core/memory/allocator.hpp"
 #include "core/memory/buffer.hpp"
-#include "core/memory/memory_region_free_list.hpp"
+#include "core/memory/memory_arena_pool.hpp"
 #include "core/memory/pool_allocator.hpp"
 
 namespace holo
@@ -26,11 +26,11 @@ namespace holo
 		public:
 			// Constructs a heap allocator with the provided parameters.
 			//
-			// 'memory_region_size' determines the minimum size of memory regions
+			// 'arena_size' determines the minimum size of memory arenas
 			// allocated by the allocator and must be a power of two.
 			//
-			// 'memory_region_count' determines how many memory regions are reserved
-			// upon construction. This value is arbitrary.
+			// 'arena_count' determines how many memory regions are permitted in
+			// total.
 			//
 			// 'pool_start' determines the minimum size of a pool while 'pool_end'
 			// determines the maximum size. Small allocations (that is, allocations
@@ -43,10 +43,10 @@ namespace holo
 			//
 			// Note: size parameters are in bytes.
 			explicit heap_allocator(
-				std::size_t memory_region_size = 0x20000u,
-				std::size_t memory_region_count = 0x80u,
-				std::size_t pool_start = 0x40u,
-				std::size_t pool_end = 0x2000u);
+				std::size_t arena_size = 0x40000u,
+				std::size_t arena_count = 0x100u,
+				std::size_t pool_start = 0x20u,
+				std::size_t pool_end = 0x10000u);
 
 			// Frees all memory allocated.
 			//
@@ -63,21 +63,6 @@ namespace holo
 			void deallocate(void* pointer);
 
 		private:
-			// Allocation header.
-			//
-			// This must be 'default_alignment' bytes large so that there's minimal impact
-			// when different alignments are requested. `holo::pool_allocator`
-			// *always* uses the default alignment, so we only have to care about
-			// alignment values that are greater.
-			struct allocation_header
-			{
-				// The pool this allocation belongs to.
-				pool_allocator* allocator;
-
-				// Pointer to the original block of memory.
-				void* pointer;
-			};
-
 			// The maximum number of pools allocated by the heap allocator.
 			//
 			// Keep in mind each pool is a power of two. The last pool, in this
@@ -85,8 +70,8 @@ namespace holo
 			// is more than plenty.
 			static const std::size_t maximum_pool_count = 32;
 
-			// The memory region free list used by the pool allocators.
-			holo::memory_region_free_list memory_region_free_list;
+			// The memory arena pool.
+			holo::memory_arena_pool memory_arena_pool;
 
 			// Static buffer used to generate an array of pool allocators.
 			holo::buffer<sizeof(holo::pool_allocator) * maximum_pool_count> pool_allocators_buffer;

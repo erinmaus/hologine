@@ -25,10 +25,6 @@ namespace holo
 	class linear_allocator final : public allocator
 	{
 		public:
-			// Signature of a destructor passed to
-			// holo::linear_allocator::set_destructor(void*, destructor_callback).
-			typedef void (* destructor_callback)(void* pointer);
-			
 			// Constructs the linear allocator, reserving 'size' bytes at once.
 			//
 			// A memory region capable of storing 'size' bytes linearly will be

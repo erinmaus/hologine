@@ -12,36 +12,36 @@
 #include "core/container/intrusive_list.hpp"
 #include "core/math/util.hpp"
 #include "core/memory/pool_allocator.hpp"
-#include "core/memory/memory_region_free_list.hpp"
+#include "core/memory/memory_arena_pool.hpp"
 
 holo::pool_allocator::pool_allocator
-	(holo::memory_region_free_list* free_list, std::size_t object_size) :
-		memory_region_list_head(nullptr),
-		memory_region_list_tail(nullptr),
-		memory_region_free_list(free_list),
-		// Increase the object size to fit a free_pool_node. This is necessary
-		// because when an object is returned to the pool, its memory is re-used
-		// to store a a portion of a free_pool_node, and thus must be at least as
-		// large as the portion of the free_pool_node stored.
-		object_size(std::max(object_size, sizeof(free_pool_node) - sizeof(allocation_header)))
+	(holo::memory_arena_pool* memory_arena_pool, std::size_t object_size) :
+		arena_list_head(nullptr),
+		arena_list_tail(nullptr),
+		memory_arena_pool(memory_arena_pool),
+		// Increase the object size to fit a free_node. This is necessary because
+		// when an object is returned to the pool, its memory is re-used to store a
+		// a portion of a free_pool_node, and thus must be at least as large as the
+		// portion of the free_node stored.
+		object_size(std::max(object_size, sizeof(free_node))),
+		object_count(memory_arena_pool->get_arena_size() / object_size)
 {
-	holo_assert(free_list != nullptr);
+	holo_assert(memory_arena_pool != nullptr);
 }
 
 holo::pool_allocator::~pool_allocator()
 {
-	auto current_iterator = intrusive_list::make_iterator(memory_region_list_head);
-	auto end_iterator = intrusive_list::end<memory_region_header>();
+	arena_record* current = arena_list_head;
 	
-	// Return the memory regions to the free list.
-	while (current_iterator != end_iterator)
+	// Return the memory arenas to the free list.
+	while (current != nullptr)
 	{
-		// Any references to the header are forfeit once it is pushed to the free
-		// list. We must fetch the next iterator before then and cache the current
-		// iterator's value.
-		auto current = *current_iterator++;
+		// Any references to the header are forfeit once it is returned.
+		arena_record* next = current->next;
 
-		memory_region_free_list->push(current);
+		memory_arena_pool->give_arena(current);
+
+		current = next;
 	}
 }
 
@@ -50,133 +50,127 @@ void* holo::pool_allocator::allocate(std::size_t size, std::size_t)
 	// Sanity check.
 	if (size > object_size)
 	{
-		// The allocation cannot succeed. Allocated blocks are assumed to be
-		// 'object_size' bytes large.
+		// The allocation cannot succeed. Allocated blocks are assumed to be no more
+		// than 'object_size' bytes large.
 		push_exception(holo::exception::invalid_argument);
 		
 		return nullptr;
 	}
 
-	pool_node* node = get_first_free_node(memory_region_list_head);
+	free_node* node = get_first_free_node(arena_list_head);
 	if (node == nullptr)
 	{
-		// There is no free space in any of the currently reserved regions, so
-		// request a new memory region from the pool allocator.
-		memory_region_header* new_memory_region = request_empty_memory_region();
+		// There are no more empty arenas. Request one from the pool.
+		arena_record* new_arena = request_empty_arena();
 
-		if (new_memory_region == nullptr)
+		if (new_arena == nullptr)
 		{
-			// Allocation failed. Propagate the exception and return.
+			// Well, there's no more memory.
 			return nullptr;
 		}
 
-		// This should always succeed: the new memory was allocated, and thus there
-		// should be at least one free node.
-		node = get_first_free_node(new_memory_region);
+		node = get_first_free_node(new_arena);
 	}
+	holo_assert(node != nullptr);
 
-	free_pool_node* next_free_data = nullptr;
+	// holo::pool_allocator::get_first_free_node(arena_record*) should somehow
+	// return the record it chose as well...
+	arena_record* arena = memory_arena_pool->get_arena(node);
+	holo_assert(arena);
+
+	free_node* next;
 	if (node->size > 1)
 	{
-		// The node must be broken up into a small and a large chunk.
-		//
-		// Since free_pool_node objects are stored in the public span in a linear
-		// order, we can just increment by default_alignment + object_size (keep in
-		// mind that the allocation header is at most default_alignment bytes large)
-		// and put the next free node there. Essentially, the public span is just
-		// an array with (default_alignment + object_size) sized elements.
-		next_free_data =
-			(free_pool_node*)((char*)node->free_data + default_alignment + object_size);
+		// This is a lazy node from when the arena was first requested. Create a
+		// 'next' free node by splitting the span of unallocated memory.
+		next = (free_node*)((char*)node + object_size);
+		next->size = node->size - 1;
+		next->next = node;
+	}
+	else
+	{
+		next = node->next;
+	}
+	next->previous = node->previous;
 
-		// The pool node list can also be considered a sort-of 'sparse' array, where
-		// cells are only complete when necessary. Therefore, to retrieve the next
-		// pool_node object, just increment the current pool_node pointer.
-		pool_node* next_node = node + 1;
-
-		// Initialize and insert the next node.
-		next_node->free_data = next_free_data;
-		next_node->size = node->size - 1;
-
-		intrusive_list::insert_after(next_node, node);
-
-		// Initialize and insert the free data.
-		// This will also update the allocation header.
-		next_free_data->memory_region = node->free_data->memory_region;
-		next_free_data->current = next_node;
-
-		intrusive_list::insert_after(next_free_data, node->free_data);
-
-		// Finally, update the node.
-		node->size = 1;
+	// Update the previous node and the arena free list.
+	free_node* previous = node->previous;
+	if (arena->free_node_count == 0)
+	{
+		// The arena is exhausted, thus the free list should be empty.
+		arena->free_node_list = nullptr;
+	}
+	else
+	{
+		previous->next = next;
+		arena->free_node_list = next;
 	}
 
-	// Keep in mind this was the first free node found, thus its 'previous'
-	// pointer is NULL; so update the tail to the next node, and then remove
-	// the node.
-	node->free_data->memory_region->free_pool_node_list = next_free_data;
-
-	// Decrease the number of free nodes.
-	--node->free_data->memory_region->free_nodes;
-	intrusive_list::remove(node->free_data);
-
-	// We don't have to update the allocation_header. By design, the fields of
-	// the allocation header map to the first fields of the free_pool_node
-	// object for this reason.
-	//
-	// 'free_data' is already adjusted by alignment requirements (so that the
-	// allocation header will be placed right before the returned pointer).
-	//
-	// So just return the pointer, offset by sizeof(allocation_header).
-	void* pointer = ((char*)node->free_data) + sizeof(allocation_header);
-
-	// Mark the node as free by delinking it from the free_data.
-	node->free_data = nullptr;
-
 	// Memory allocation is good to go! Return.
-	return pointer;
+	return node;
 }
 
 void holo::pool_allocator::deallocate(void* pointer)
 {
-	allocation_header* header = (allocation_header*)pointer - 1;
-	pool_node* node = header->node;
+	arena_record* arena = memory_arena_pool->get_arena(pointer);
 
-	// Ensure the node is currently allocated. Double deallocations ruin the
-	// internal state of the allocator.
-	holo_assert(node->free_data == nullptr);
+	// Although not normally a sane option, we allow 'pointer' to be different
+	// from the value returned by
+	// holo::pool_allocator::allocate(std::size_t, std::size_t) for one reason:
+	// the generic heap allocator may round up an allocation based on alignment
+	// requirements.
+	//
+	// If we required the normal behavior (pointer must equal return value of the
+	// allocation method), then the generic heap allocator would have to use extra
+	// data to keep track of allocations... By finding the pointer, we eliminate
+	// the bookkeeping!
+	pointer = (void*)(((unsigned_pointer)pointer - (unsigned_pointer)arena->base) % object_size);
 
-	// Setup the node's free data.
-	make_free_node(header);
+	holo_assert(arena != nullptr);
+	holo_assert(arena->allocator == this);
 
-	// Check if free_nodes == memory_region->size. If so, this region should be
-	// returned back to the free list unless it's the only memory region in the
-	// local pool list.
-	memory_region_header* memory_region = node->free_data->memory_region;
-	++memory_region->free_nodes;
+	++arena->free_node_count;
 
-	// If memory_region->free_nodes > memory_region->size, we have (at some point)
-	// deallocated a stale pointer unwittingly. Better late thannever in catching
-	// the error!
-	holo_assert(memory_region->free_nodes <= memory_region->size);
-
-	if (memory_region->free_nodes == memory_region->size
-		&& memory_region_list_head != memory_region_list_tail)
+	// Return the arena immediately if possible.
+	if (arena->free_node_count == object_count)
 	{
-		// Update the head or tail if necessary.
-		if (memory_region_list_head == memory_region)
+		// Remove the arena from the list first.
+		intrusive_list::remove(arena);
+
+		// Update the head and tail pointers, if necessary.
+		if (arena_list_head == arena)
 		{
-			memory_region_list_head = memory_region->next;
-		}
-		else if (memory_region_list_tail == memory_region)
-		{
-			memory_region_list_tail = memory_region->previous;
+			arena_list_head = arena->next;
 		}
 
-		// Remove the node from the list.
-		intrusive_list::remove(memory_region);
+		if (arena_list_tail == arena)
+		{
+			arena_list_tail = arena->next;
+		}
 
-		// ...and tell the region list it's free for use.
-		memory_region_free_list->push(memory_region);
+		memory_arena_pool->give_arena(arena);
+	}
+	else
+	{
+		// Otherwise, update the arena's free node list.
+		free_node* node = (free_node*)pointer;
+
+		// Size would have been overwritten by any data stored in the object (so we
+		// must assume).
+		node->size = 1;
+
+		if (arena->free_node_list != nullptr)
+		{
+			node->next = arena->free_node_list;
+			node->previous = arena->free_node_list->previous;
+		}
+		else
+		{
+			// This is the first deallocated node in the arena now. Since the free
+			// node list is a circular buffer, 'node' should point to itself.
+			node->next = node;
+			node->previous = node;
+		}
 	}
 }
 
@@ -185,195 +179,56 @@ std::size_t holo::pool_allocator::get_object_size() const
 	return object_size;
 }
 
-holo::pool_allocator::pool_node* holo::pool_allocator::get_first_free_node(memory_region_header* header)
+std::size_t holo::pool_allocator::get_object_count() const
 {
-	// Find the first memory region, in order of age, that has a free node,
-	// starting with the provided header.
-	auto current_memory_region_iter = intrusive_list::make_iterator(header);
-	auto end_memory_region_iter = intrusive_list::end<memory_region_header>();
+	return object_count;
+}
 
-	while (current_memory_region_iter != end_memory_region_iter)
+holo::pool_allocator::free_node* holo::pool_allocator::get_first_free_node(arena_record* arena)
+{
+	arena_record* current_arena = arena;
+
+	while (current_arena != nullptr)
 	{
-		memory_region_header* current_memory_region_header = *current_memory_region_iter;
-
-		if (current_memory_region_header->free_pool_node_list != nullptr)
+		if (current_arena->free_node_list != nullptr)
 		{
-			free_pool_node* free_node = current_memory_region_header->free_pool_node_list;
+			// Update the arena's free node count.
+			--current_arena->free_node_count;
 
-			// The free node is guaranteed to store at least enough space for one
-			// allocation (with respect to 'object_size'), so just return it.
-			pool_node* node = free_node->current;
-			return node;
+			return current_arena->free_node_list;
 		}
 
-		current_memory_region_iter++;
+		current_arena = current_arena->next;
 	}
 
-	// No free space in any of the regions. Signal the caller by returning NULL.
 	return nullptr;
 }
 
-holo::pool_allocator::memory_region_header* holo::pool_allocator::request_empty_memory_region()
+holo::pool_allocator::arena_record* holo::pool_allocator::request_empty_arena()
 {
-	void* requested_region = memory_region_free_list->pop();
+	arena_record* arena = memory_arena_pool->take_arena();
 
-	// Uh-oh, we're out of memory.
-	if (requested_region == nullptr)
+	if (arena != nullptr)
 	{
-		// Just propogate holo::exception::out_of_memory, or whatever other error
-		// may have caused the free list to fail.
-		return nullptr;
-	}
+		arena->allocator = this;
+		arena->free_node_count = object_count;
+		arena->free_node_list = (free_node*)arena->base;
 
-	// The header of a region is stored at the beginning of the region.
-	memory_region_header* requested_region_header =
-		(memory_region_header*)requested_region;
+		arena->free_node_list->size = object_count;
+		arena->free_node_list->next = arena->free_node_list;
+		arena->free_node_list->previous = arena->free_node_list;
 
-	// Prepare the region.
-	requested_region_header->next = nullptr;
-	requested_region_header->previous = nullptr;
-
-	// Calculate the header size to create the first pool node. This node is
-	// aligned on a safe boundary.
-	std::size_t header_size =
-		get_pointer_distance(align_pointer(requested_region_header + 1, alignof(pool_node)), requested_region);
-	pool_node* node = (pool_node*)((char*)requested_region + header_size);
-
-	// Setup the memory region for use with the allocator.
-	//
-	// 'next' and 'previous' are relative to the nodes in the region, not the pool.
-	node->next = nullptr;
-	node->previous = nullptr;
-
-	std::size_t available_region_size =
-		memory_region_free_list->get_memory_region_size() - header_size - default_alignment - 1;
-	std::size_t allocated_node_size = sizeof(pool_node) + sizeof(allocation_header) + object_size;
-
-	// 'size' is in multiples of 'object_size', not bytes; thus, we find the
-	// maximum amount of blocks that can be stored in this region and use that as
-	// the 'size' value.
-	node->size = available_region_size / allocated_node_size;
-
-	// If the node size is zero, then a fatal error has occurred in the
-	// creation of the pool allocator or the free list: it means the object_size
-	// and extra bookkeeping data are too large for a region returned from the
-	// free list--too large to even store one block.
-	holo_assert(node->size > 0);
-
-	// Prepare the 'free_data' member.
-	//
-	// free_pool_node objects are stored in the 'public span' of the memory
-	// region. As it stands, the free data is split across (when allocated) the 
-	// allocation_header and allocation data.
-	//
-	// We prepared for the necessary alignment when we calculated the available
-	// size above; therefore, just find the maximum extent of the pool node list,
-	// align to the next 'default_alignment' boundary, and use that as the
-	// 'free_data' pointer.
-	void* public_span_start =
-		align_pointer((char*)node + node->size * sizeof(pool_node), default_alignment);
-
-	// Adjust by the difference between 'default_alignment' and
-	// sizeof(allocation_header).
-	//
-	// The allocation header is stored right before the allocation, which means
-	// there could be necessary padding on platforms where the default alignment is
-	// different from the size of the allocation header.
-	node->free_data = 
-		(free_pool_node*)((char*)public_span_start + (default_alignment - sizeof(allocation_header)));
-
-	// Initialize the free_data member.
-	node->free_data->memory_region = requested_region_header;
-	node->free_data->current = node;
-	node->next = nullptr;
-	node->previous = nullptr;
-
-	// Finish creating the memory region header.
-	//
-	// The first free node spans the available region, thus its size is the
-	// maximum number of objects that can be allocated. So just use that value for
-	// the memory_region_header::size.
-	requested_region_header->size = node->size;
-	requested_region_header->free_nodes = node->size;
-	requested_region_header->free_pool_node_list = node->free_data;
-
-	if (memory_region_list_head == nullptr)
-	{
-		// No regions have been allocated, so initialize the list.
-		memory_region_list_head = requested_region_header;
-		memory_region_list_tail = requested_region_header;
-	}
-	else
-	{
-		// There are regions in use! So just update the tail.
-		memory_region_list_tail =
-			intrusive_list::insert_after(requested_region_header, memory_region_list_tail);
-	}
-
-	// We're done. Return the new memory region.
-	return requested_region_header;
-}
-
-void holo::pool_allocator::make_free_node(void* pointer)
-{
-	free_pool_node* free_data = (free_pool_node*)pointer;
-
-	// Find the free node that is just before the provided node.
-	//
-	// Although this is a linear search, it should rarely be too slow because of
-	// the way allocatinos are handled. Spans of more than one free object are
-	// coalesced into 'large' free nodes, reducing the cost of iteration over
-	// empty spans.
-	//
-	// This coalescing operation is performed first; thus, if there is a free node
-	// immediately to the left (i.e., node->previous is free), then the search
-	// will never be performed, eliminating a possible worst-case scenario where 
-	// every other node is allocated is no longer a problem.
-	//
-	// The worst case scenario would be an alternating pattern of allocations
-	// prior to the free node, which itself is adjacent to an allocated node on
-	// the left side.
-	//
-	// When instrusive AVL trees (and thus binary trees) are implemented, then
-	// the free list can become a tree, resulting in speedy insertions regardless
-	// of the allocation pattern.
-	auto prior_free_node_iter =
-		intrusive_list::make_iterator(free_data->memory_region->free_pool_node_list);
-	auto end_free_node_iter = intrusive_list::end<free_pool_node>();
-
-	free_pool_node* prior_free_node = nullptr;
-	while (prior_free_node_iter != end_free_node_iter)
-	{
-		// 'current' means 'current relative to this loop'; not to be confused with
-		// the node we are generating 'free_data' for.
-		free_pool_node* current_free_node = *prior_free_node_iter;
-
-		if (prior_free_node > free_data)
+		if (arena_list_tail == nullptr)
 		{
-			// We've gone too far. The 'prior_free_node' will contain the closest node
-			// before 'node' (the parameter) since it hasn't been updated.
-			break;
+			// No arenas have been reserved by the pool.
+			arena_list_head = arena;
+			arena_list_tail = arena;
 		}
-
-		prior_free_node = current_free_node;
-		prior_free_node_iter++;
+		else
+		{
+			intrusive_list::insert_after(arena, arena_list_tail);	
+		}
 	}
 
-	if (prior_free_node == nullptr)
-	{
-		// If prior_free_node is null, that means there are no allocations currently
-		// in the free list, so just insert node->free_data.
-		free_data->next = nullptr;
-		free_data->previous = nullptr;
-
-		free_data->memory_region->free_pool_node_list = free_data;
-	}
-	else
-	{
-		// Otherwise, just insert the free_data into the list.
-		intrusive_list::insert_after(free_data, prior_free_node);
-	}
-
-	// Mark the pool node as freed.
-	free_data->current->free_data = free_data;
+	return arena;
 }

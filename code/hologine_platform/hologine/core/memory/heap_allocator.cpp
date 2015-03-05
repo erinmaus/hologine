@@ -15,11 +15,11 @@
 #include "core/memory/pool_allocator.hpp"
 
 holo::heap_allocator::heap_allocator(
-	std::size_t memory_region_size,
-	std::size_t memory_region_count,
+	std::size_t arena_size,
+	std::size_t arena_count,
 	std::size_t pool_start,
 	std::size_t pool_end) :
-		memory_region_free_list(memory_region_size),
+		memory_arena_pool(arena_size, arena_count),
 		pool_allocators((holo::pool_allocator*)pool_allocators_buffer.get()),
 		minimum_pool_size(math::bit_log2(pool_start)),
 		maximum_pool_size(math::bit_log2(pool_end))
@@ -37,12 +37,11 @@ holo::heap_allocator::heap_allocator(
 		// The pool allocator does not perform any allocations.
 		//
 		// Therefore, don't check for errors!
-		new(current) holo::pool_allocator(&memory_region_free_list, 1 << current_size++);
+		new(current) holo::pool_allocator(&memory_arena_pool, 1 << current_size);
+
+		++current_size;
 		++current;
 	}
-
-	// Try and reserve some memory regions. Failure doesn't matter.
-	memory_region_free_list.reserve(memory_region_count);
 }
 
 holo::heap_allocator::~heap_allocator()
@@ -58,10 +57,6 @@ holo::heap_allocator::~heap_allocator()
 
 void* holo::heap_allocator::allocate(std::size_t size, std::size_t alignment)
 {
-	// We have to store some metadata in the allocation. Lucky for us, the minimum
-	// alignment of a holo::pool_allocator is 16 bytes. Therefore, we only have to
-	// care when alignment is greater than 16 (since alignments of smaller sizes)
-	// will align properly with the default alignment.
 	std::size_t minimum_alignment = std::max(alignment, default_alignment);
 	std::size_t required_alignment = minimum_alignment - default_alignment;
 
@@ -71,7 +66,7 @@ void* holo::heap_allocator::allocate(std::size_t size, std::size_t alignment)
 		--required_alignment;
 	}
 
-	std::size_t final_size = required_alignment + size + sizeof(allocation_header);
+	std::size_t final_size = required_alignment;
 
 	// Get the clamped pool index of a pool that's large enough for this
 	// allocation.
@@ -98,31 +93,14 @@ void* holo::heap_allocator::allocate(std::size_t size, std::size_t alignment)
 		return nullptr;
 	}
 
-	void* adjusted_pointer = (char*)base_pointer + sizeof(allocation_header);
-	if (required_alignment > 0)
-	{
-		// Align. Logically, we increment at most 'required_alignment' bytes for
-		// alignments greater than default_alignment.
-		adjusted_pointer = align_pointer(adjusted_pointer, alignment);
-	}
-
-	// The allocation header is stored sizeof(allocation_header) bytes before the
-	// returend pointer. We can't just use 'base_pointer' because alignment may
-	// have been necessary.
-	allocation_header* header = (allocation_header*)adjusted_pointer - 1;
-
-	// Finish up by initializing the header.
-	header->allocator = &pool_allocators[pool_index];
-	header->pointer = base_pointer;
-
-	return adjusted_pointer;
+	// Align and return.
+	return align_pointer(base_pointer, alignment);
 }
 
 void holo::heap_allocator::deallocate(void* pointer)
 {
-	// Adjust the pointer to get the header.
-	allocation_header* header = (allocation_header*)pointer - 1;
+	auto record = memory_arena_pool.get_arena(pointer);
+	holo_assert(record != nullptr);
 
-	// Simple!
-	header->allocator->deallocate(header->pointer);
+	record->allocator->deallocate(pointer);
 }
