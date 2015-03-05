@@ -28,25 +28,25 @@ namespace holo
 			memory_stream(std::uint8_t* stream, std::uint64_t length, bool readable, bool writable);
 			
 			// Implementation.
-			std::size_t read(std::uint8_t* data, std::size_t count);
+			std::size_t read(std::uint8_t* data, std::size_t count) override;
 			
 			// Implementation.
-			std::size_t write(std::uint8_t* data, std::size_t count);
+			std::size_t write(const std::uint8_t* data, std::size_t count) override;
 			
 			// Implementation.
-			bool seek(std::uint64_t offset, int flags);
+			bool seek(std::uint64_t offset, int flags) override;
 			
 			// Implementation.
-			std::uint64_t get_position() const;
+			std::uint64_t get_position() const override;
 			
 			// Implementation.
-			bool get_readable() const;
+			bool get_readable() const override;
 			
 			// Implementation.
-			bool get_writable() const;
+			bool get_writable() const override;
 			
 			// Implementation.
-			std::uint64_t get_size() const;
+			std::uint64_t get_length() const override;
 			
 		private:
 			// Whether or not we can read data.

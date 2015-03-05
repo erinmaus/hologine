@@ -30,9 +30,8 @@ holo::memory_stream::memory_stream(std::uint8_t* stream, std::uint64_t length, b
 
 std::size_t holo::memory_stream::read(std::uint8_t* data, std::size_t count)
 {
-	// If we are not allowed to read from the memory block, or if the write-to
-	// buffer is null, we can't read.
-	if (!is_readable || data == nullptr)
+	// If we are not allowed to read from the memory block, signal the caller.
+	if (!is_readable)
 		return 0;
 	
 	// Read bytes into the write-to buffer until we have either read them all or
@@ -47,11 +46,10 @@ std::size_t holo::memory_stream::read(std::uint8_t* data, std::size_t count)
 	return bytes_read;
 }
 
-std::size_t holo::memory_stream::write(std::uint8_t* data, std::size_t count)
+std::size_t holo::memory_stream::write(const std::uint8_t* data, std::size_t count)
 {
-	// If we are not allowed to write to the memory block, or if the read-from
-	// buffer is null, we can't read.
-	if (!is_writable || data == nullptr)
+	// If we are not allowed to write to the memory block, signal the caller.
+	if (!is_writable)
 		return 0;
 	
 	// Write bytes into the write-to buffer until we have either written them
@@ -70,22 +68,50 @@ bool holo::memory_stream::seek(std::uint64_t offset, int flags)
 {
 	std::size_t new_position;
 
-	// Ignore our current position if the user wants an absolute seek.
-	if (flags & seek_flags::absolute)
+	switch (flags)
 	{
-		new_position = offset;
-	}
-	else
-	{
-		new_position = current_position + offset;
+		case seek_flags::absolute:
+			new_position = offset;
+			break;
+
+		case seek_flags::forward_relative:
+			new_position = current_position + offset;
+			break;
+
+		case seek_flags::backward_relative:
+			// Clamp to zero, if necessary.
+			if (offset > current_position)
+			{
+				new_position = 0;
+			}
+			else
+			{
+				new_position = current_position - offset;
+			}
+			break;
+
+		case seek_flags::end:
+			if (offset > stream_length)
+			{
+				new_position = 0;
+			}
+			else
+			{
+				offset = stream_length - offset;
+			}
+			break;
+
+		default:
+			return false;
 	}
 	
 	// Bounds check on our position and make sure we don't step out of bounds.
 	if (new_position >= stream_length)
-		return false;
+		new_position = stream_length;
 	
 	// Seek and return success.
 	current_position = new_position;
+	
 	return true;
 }
 
@@ -104,7 +130,7 @@ bool holo::memory_stream::get_writable() const
 	return is_writable;
 }
 
-std::uint64_t holo::memory_stream::get_size() const
+std::uint64_t holo::memory_stream::get_length() const
 {
-	return current_position;
+	return stream_length;
 }

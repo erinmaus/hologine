@@ -40,7 +40,7 @@ namespace holo
 			// 
 			// Returns the number of bytes read from the stream. A value not
 			// equal to count indicates a partial operation.
-			virtual std::size_t write(std::uint8_t* data, std::size_t count) = 0;
+			virtual std::size_t write(const std::uint8_t* data, std::size_t count) = 0;
 			
 			// Steps ahead the specified number of bytes in the stream.
 			// Valid flag enums are in the holo::seek_flags namespace.
@@ -71,11 +71,18 @@ namespace holo
 		{
 			// Uses the seeking offset as an offset to the current position,
 			// rather than an absolute one.
-			relative = 0x0,
+			forward_relative = 0,
+
+			// Uses the seeking offset as an offset to the current position, but seeks
+			// backwards.
+			backward_relative = 1,
+
+			// Uses the offset at the end of the file and seeks backwards.
+			end = 2,
 			
 			// Uses the seeking offset as an absolute position, rather than
 			// a relative one.
-			absolute = 0x1,
+			absolute = 3
 		};
 	}
 }

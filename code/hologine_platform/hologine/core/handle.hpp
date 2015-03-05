@@ -138,36 +138,36 @@ namespace holo
 			//
 			// No error checking is done on the provided values. Values out of range
 			// will simply produce unexpected results.
-			holo::handle encode(std::size_t age, std::size_t scope, std::size_t index);
+			static holo::handle encode(std::size_t age, std::size_t scope, std::size_t index);
 
 			// Gets if the provided handle is valid for the handle definition.
 			//
 			// This should be used before decoding any values, if robustness is
 			// necessary.
-			bool is_type(holo::handle handle);
+			static bool is_type(holo::handle handle);
 
 			// Decodes the handle age.
 			//
 			// This method does not verify the handle type is correct. Ensure validity
 			// by using holo::handle_definition::is_type(holo::handle) first.
-			std::size_t decode_age(holo::handle handle);
+			static std::size_t decode_age(holo::handle handle);
 
 			// Decodes the handle scope.
 			//
 			// This method does not verify the handle type is correct. Ensure validity
 			// by using holo::handle_definition::is_type(holo::handle) first.
-			std::size_t decode_scope(holo::handle handle);
+			static std::size_t decode_scope(holo::handle handle);
 
 			// Decodes the handle index.
 			//
 			// This method does not verify the handle type is correct. Ensure validity
 			// by using holo::handle_definition::is_type(holo::handle) first.
-			std::size_t decode_index(holo::handle handle);
+			static std::size_t decode_index(holo::handle handle);
 
 			// Utility to increment age within range.
 			//
 			// Age values start at 1 and wrap when they reach max_age.
-			std::size_t increment_age(std::size_t age);
+			static std::size_t increment_age(std::size_t age);
 	};
 
 	template <std::size_t Type, std::size_t Age, std::size_t Scope, std::size_t Index>
